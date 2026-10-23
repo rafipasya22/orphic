@@ -1,0 +1,57 @@
+# Python (backend)
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
+/backend/lagu/
+/backend/spectrograms/
+/backend/model/
+/backend/audio/
+
+# Env 
+.env
+.env.*
+*.env
+!.env.example
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node / Vite (frontend)
+node_modules
+dist
+dist-ssr
+coverage
+*.local
+*.tsbuildinfo
+.eslintcache
+*.timestamp-*-*.mjs
+
+# OS / editors
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tests
+cypress/videos/
+cypress/screenshots/
+__screenshots__/
+
+# Deploy
+.vercel
