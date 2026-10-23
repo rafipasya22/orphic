@@ -1,4 +1,5 @@
 import './assets/main.css'
+import '@/composable/http'
 
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'

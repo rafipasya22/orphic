@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from '@/config'
 import { activefunc } from '../composable/active';
 import { logoutconffunc } from '../composable/logoutconf';
 import { darkFunc } from '../composable/darkMode';
@@ -69,7 +70,7 @@ const fetchHistory = async () => {
       return;
     }
 
-    const res = await axios.get(`http://127.0.0.1:8000/history/${user.id}`);
+    const res = await axios.get(`${API_URL}/history/${user.id}`);
 
     histories.value = res.data;
   } catch (err) {
@@ -97,7 +98,7 @@ onMounted(async () => {
 
   const user = authStore.user;
 
-  const res = await axios.get(`http://localhost:8000/api/profile/${user.id}`);
+  const res = await axios.get(`${API_URL}/api/profile/${user.id}`);
 
   profile.value = res.data;
 

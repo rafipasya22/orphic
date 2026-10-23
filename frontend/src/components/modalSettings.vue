@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from '@/config'
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import { munculinTooltip } from '../composable/tooltip';
@@ -84,7 +85,7 @@ const submitChanges = async () => {
       formData.append('profileImage', profileImage.value);
     }
 
-    const res = await axios.post('http://localhost:8000/api/changes', formData, {
+    const res = await axios.post(`${API_URL}/api/changes`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -117,7 +118,7 @@ const fetchSaved = async () => {
       return;
     }
 
-    const res = await axios.get(`http://127.0.0.1:8000/audio/info/${user.id}`);
+    const res = await axios.get(`${API_URL}/audio/info/${user.id}`);
 
     savedSongs.value = res.data as savedSong[];
   } catch (err) {
@@ -135,7 +136,7 @@ const formatTime = (seconds: number) => {
 const deleteSaved = async (audioId: string) => {
   isDeletLoading.value = true;
   try {
-    await axios.delete(`http://127.0.0.1:8000/audio/user/${audioId}`);
+    await axios.delete(`${API_URL}/audio/user/${audioId}`);
 
     savedSongs.value = savedSongs.value.filter((item) => item.audio_id !== audioId);
   } catch (err) {
@@ -148,7 +149,7 @@ const deleteSaved = async (audioId: string) => {
 const deleteAllSaved = async (user_id: string) => {
   isDeletLoading.value = true;
   try {
-    await axios.delete(`http://127.0.0.1:8000/audio/user/${user_id}/all`);
+    await axios.delete(`${API_URL}/audio/user/${user_id}/all`);
     fetchSaved();
   } catch (err) {
     console.log(err);

@@ -1,4 +1,5 @@
-<script lang="ts" setup>
+﻿<script lang="ts" setup>
+import { API_URL } from '@/config'
 import { openHistoryModal } from '../composable/openHistory';
 import { deleteAllConfFunc } from '../composable/openDeleteAllConfModal';
 import { deleteConfFunc } from '../composable/openDeleteConfModal';
@@ -58,7 +59,7 @@ const fetchHistory = async () => {
       return;
     }
 
-    const res = await axios.get(`http://127.0.0.1:8000/history/${user.id}`);
+    const res = await axios.get(`${API_URL}/history/${user.id}`);
 
     histories.value = res.data;
   } catch (err) {
@@ -126,7 +127,7 @@ const groupedHistories = computed(() => {
 const deleteHistory = async (historyId: string) => {
   isDeletLoading.value = true;
   try {
-    await axios.delete(`http://127.0.0.1:8000/history/${historyId}`);
+    await axios.delete(`${API_URL}/history/${historyId}`);
 
     histories.value = histories.value.filter((item) => item.id !== historyId);
   } catch (err) {
@@ -140,7 +141,7 @@ const deletethisday = async (date: string, user_id: string) => {
   console.log('DATE: ', date);
   isDeletLoading.value = true;
   try {
-    await axios.delete(`http://127.0.0.1:8000/history/user/${user_id}/date/${date}`);
+    await axios.delete(`${API_URL}/history/user/${user_id}/date/${date}`);
     fetchHistory();
   } catch (err) {
     console.log(err);
@@ -152,7 +153,7 @@ const deletethisday = async (date: string, user_id: string) => {
 const deleteall = async (user_id: string) => {
   isDeletLoading.value = true;
   try {
-    await axios.delete(`http://127.0.0.1:8000/history/user/${user_id}/all`);
+    await axios.delete(`${API_URL}/history/user/${user_id}/all`);
 
     fetchHistory();
   } catch (err) {
@@ -173,7 +174,7 @@ onMounted(async () => {
   }
   idUser.value = user.id;
 
-  const res = await axios.get(`http://localhost:8000/api/profile/${user.id}`);
+  const res = await axios.get(`${API_URL}/api/profile/${user.id}`);
 
   profile.value = res.data;
 

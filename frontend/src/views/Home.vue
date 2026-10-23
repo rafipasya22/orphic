@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from '@/config'
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { gantiBahasaFunc } from '../composable/gantiBahasa';
 import ModalLogin from '../components/modalLogin.vue';
@@ -390,7 +391,7 @@ onMounted(async () => {
 
   const user = authStore.user;
 
-  const res = await axios.get(`http://localhost:8000/api/profile/${user.id}`);
+  const res = await axios.get(`${API_URL}/api/profile/${user.id}`);
 
   profile.value = res.data;
 });

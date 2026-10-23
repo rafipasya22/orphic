@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from '@/config'
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { gantiBahasaFunc } from '../composable/gantiBahasa.ts';
 import ModalLogin from '../components/modalLogin.vue';
@@ -204,7 +205,7 @@ const handleAudioUpload = async (file: File) => {
   formData.append('userId', user.id);
 
   try {
-    const res = await fetch('http://127.0.0.1:8000/predict', {
+    const res = await fetch(`${API_URL}/predict`, {
       method: 'POST',
       body: formData,
     });
@@ -222,6 +223,14 @@ const handleAudioUpload = async (file: File) => {
 };
 
 const preds = ref<any[]>([]);
+
+watch(
+  () => preds.value[0]?.song_title,
+  (title) => {
+    document.title = title ? `Orphic | ${title} prediction` : 'Orphic | Prediction';
+  },
+  { immediate: true },
+);
 
 const hasilPreds = computed(() => {
   if (probability.value == null) {
@@ -247,7 +256,7 @@ const isPlaying = ref(false);
 const src = computed(() => {
   const audioId = preds.value[0]?.audio_id;
   if (!audioId) return '';
-  return `http://localhost:8000/audio/${audioId}`;
+  return `${API_URL}/audio/${audioId}`;
 });
 
 watch(src, async (newSrc) => {
@@ -425,7 +434,7 @@ watch(
   async (historyId) => {
     if (!historyId) return;
 
-    const res = await axios.get(`http://localhost:8000/dash/pred/${historyId}`);
+    const res = await axios.get(`${API_URL}/dash/pred/${historyId}`);
 
     preds.value = res.data;
     console.log('valpreds', preds.value);
@@ -442,7 +451,7 @@ onMounted(async () => {
   isHelpActive.value = false;
   const user = authStore.user;
 
-  const res = await axios.get(`http://localhost:8000/api/profile/${user.id}`);
+  const res = await axios.get(`${API_URL}/api/profile/${user.id}`);
 
   profile.value = res.data;
 
@@ -452,6 +461,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  document.title = 'Orphic | Trace the Sound to Its Source';
   if (wavesurfer.value) {
     wavesurfer.value.destroy();
   }
@@ -518,7 +528,7 @@ onUnmounted(() => {
                   >
                     <img
                       v-if="preds[0]?.thumbnail"
-                      :src="`http://localhost:8000/audio/thumb/${preds[0].thumbnail}`"
+                      :src="`${API_URL}/audio/thumb/${preds[0].thumbnail}`"
                       class="w-full h-full object-cover rounded-[5px]"
                       alt="thumbnail"
                     />
@@ -727,7 +737,7 @@ onUnmounted(() => {
                   >
                     <img
                       v-if="preds[0]?.thumbnail"
-                      :src="`http://localhost:8000/audio/thumb/${preds[0].thumbnail}`"
+                      :src="`${API_URL}/audio/thumb/${preds[0].thumbnail}`"
                       class="w-full h-full object-cover rounded-[5px]"
                       alt="thumbnail"
                     />

@@ -33,7 +33,7 @@ defineExpose({
         gantiWarnaNavbar ? (isDarkMode ? 'text-[#ae04cc]' : 'text-[#83009a]') : 'text-gray-300'
       "
     >
-      Artificial Beats Investigator
+      Orphic
     </div>
     <div v-if="authStore.user" class="right flex flex-row justify-start items-center gap-2">
       <button

@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from '@/config'
 import { ref } from 'vue';
 import { useAuthStore } from '../stores/authstore';
 import { gantiBahasaFunc } from '../composable/gantiBahasa';
@@ -71,7 +72,7 @@ const submitLink = async () => {
   link.value = '';
 
   try {
-    const res = await axios.post(`http://localhost:8000/songs`, {
+    const res = await axios.post(`${API_URL}/songs`, {
       link: Templink.value,
       userId: authStore.user.id,
     });

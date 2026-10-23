@@ -1,3 +1,4 @@
+﻿import { API_URL } from '@/config'
 import { ref } from 'vue';
 
 const modelLagiLoading = ref(true);
@@ -5,7 +6,7 @@ let intervalId: ReturnType<typeof setInterval> | null = null;
 
 const isModelLoading = async () => {
   try {
-    const res = await fetch('http://127.0.0.1:8000/');
+    const res = await fetch(`${API_URL}/`);
     const data = await res.json();
 
     if (data.status === 'udah') {

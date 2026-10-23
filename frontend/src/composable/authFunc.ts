@@ -1,3 +1,4 @@
+﻿import { API_URL } from '@/config'
 import { ref } from 'vue';
 import axios from 'axios';
 import { signupconffunc } from './signupconf';
@@ -5,6 +6,8 @@ import { generateUsernameFunc } from './generateUsername';
 import { openModalLogin } from './openmodalLogin'
 import { useAuthStore } from '../stores/authstore';
 import { useRouter } from 'vue-router';
+
+import { setTokens } from '@/composable/http'
 
 const { opensignupconf } = signupconffunc();
 const { username } = generateUsernameFunc();
@@ -58,7 +61,7 @@ const submitLoginForm = async () => {
   try {
 
     const res = await axios.post(
-      'http://localhost:8000/api/login',
+      `${API_URL}/api/login`,
       {
         email: email.value,
         password: password.value,
@@ -72,7 +75,7 @@ const submitLoginForm = async () => {
 
     closeModal()
     await authStore.fetchProfile();
-    
+    setTokens(res.data.access_token, res.data.refresh_token)
     route.push('/dash');
 
   } catch (err: any) {
@@ -93,7 +96,7 @@ const submitSignupForm = async () => {
   signupError.value = '';
 
   try {
-    const res = await axios.post<signupResponse>('http://localhost:8000/api/signup', {
+    const res = await axios.post<signupResponse>(`${API_URL}/api/signup`, {
       email: email.value,
       password: password.value,
       username: username.value,

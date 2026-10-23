@@ -1,0 +1,12 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+model/
+audio/
+spectrograms/
+lagu/
+.git
+.gitignore

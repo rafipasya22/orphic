@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse  
 from pydantic import BaseModel
@@ -33,13 +33,22 @@ import requests
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
+ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "ALLOWED_ORIGINS", "http://localhost:8080,http://localhost:5173"
+    ).split(",")
+    if o.strip()
+]
+
+load_dotenv()
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,  
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -48,8 +57,6 @@ app.add_middleware(
 AUDIO_DIR = os.path.join(os.path.dirname(__file__), "audio")
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
-load_dotenv()
-
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
@@ -57,6 +64,37 @@ SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 supabase_auth = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+UUID_RE = re.compile(r"^[0-9a-fA-F-]{36}$")
+THUMB_RE = re.compile(r"^[0-9a-fA-F-]{36}_thumb\.[A-Za-z0-9+.\-]{1,10}$")
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+def current_user(authorization: str | None = Header(None)) -> str:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        res = supabase_auth.auth.get_user(authorization[7:].strip())
+        uid = res.user.id if res and res.user else None
+    except Exception:
+        uid = None
+    if not uid:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return uid
+
+
+def optional_user(authorization: str | None = Header(None)) -> str | None:
+    return current_user(authorization) if authorization else None
+
+
+def same_user(user_id: str, uid: str):
+    if user_id != uid:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "model_crnn_21April.keras")
 
 HEADERS = {
     "User-Agent": (
@@ -138,10 +176,6 @@ def _extract_suno_info(song_url: str):
 
 
 def download_suno_song(link: str, temp_dir: str):
-    """
-    Download lagu dari link Suno, convert ke WAV, dan ambil thumbnail.
-    Return: (wav_path, title, thumbnail_bytes, thumbnail_mime)
-    """
     audio_url, title, thumbnail_url = _extract_suno_info(link)
 
     mp3_path = os.path.join(temp_dir, "source.mp3")
@@ -255,7 +289,7 @@ def informative_slices_weighted(y, sr, slice_duration=8, n_slices=10):
     candidates = sorted(candidates, key=lambda x: x[0], reverse=True)
  
     slices = []
-    slice_meta = []  # NEW: metadata list, parallel to `slices`
+    slice_meta = []  
     used = []
  
     for s, start, end in candidates:
@@ -391,7 +425,7 @@ def compute_spectral_repetition(y, sr):
 
 def loadmodel():
     global model, model_ready
-    model = load_model("C:\\Users\\Asus\\web_skripsi\\backend\\model\\model_crnn_21April.keras")
+    model = load_model(MODEL_PATH)
     model_ready = True
 
 threading.Thread(target=loadmodel).start()
@@ -453,20 +487,21 @@ def save_thumbnail(image_data: bytes, audio_id: str, mime: str = "image/jpeg") -
     return thumb_filename
 
 def extract_thumbnail_bytes(file_path: str) -> tuple[bytes, str] | tuple[None, None]:
+    path = file_path.lower()
     try:
-        if file_path.endswith(".mp3"):
+        if path.endswith(".mp3"):
             tags = ID3(file_path)
             for tag in tags.values():
                 if hasattr(tag, "data") and tag.FrameID.startswith("APIC"):
                     return tag.data, tag.mime or "image/jpeg"
 
-        elif file_path.endswith(".flac"):
+        elif path.endswith(".flac"):
             audio = FLAC(file_path)
             if audio.pictures:
                 pic = audio.pictures[0]
                 return pic.data, pic.mime or "image/jpeg"
 
-        elif file_path.endswith(".m4a"):
+        elif path.endswith(".m4a"):
             audio = MP4(file_path)
             if "covr" in audio.tags:
                 cover = audio.tags["covr"][0]
@@ -547,7 +582,7 @@ def root():
 @app.post("/predict")
 async def predict(
     file: UploadFile = File(...),
-    userId: str = Form(None)
+    uid: str | None = Depends(optional_user),
 ):
     if not model_ready:
         return {"error": "Model belum siap"}
@@ -560,7 +595,7 @@ async def predict(
         tmp_path = tmp.name
 
     try:
-        return run_prediction(tmp_path, file.filename, userId)
+        return run_prediction(tmp_path, file.filename, uid)
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
@@ -599,6 +634,18 @@ def login(data: LoginRequest):
             status_code=401,
             detail="Invalid email or password"
         )
+
+
+@app.post("/api/refresh")
+def refresh(data: RefreshRequest):
+    try:
+        r = supabase_auth.auth.refresh_session(data.refresh_token)
+        return {
+            "access_token": r.session.access_token,
+            "refresh_token": r.session.refresh_token,
+        }
+    except Exception:
+        raise HTTPException(status_code=401, detail="Session expired")
 
 
 @app.post("/api/signup")
@@ -697,7 +744,9 @@ def signup(data: SignupRequest):
     }
 
 @app.get("/api/profile/{user_id}")
-def get_profile(user_id: str):
+def get_profile(user_id: str, uid: str = Depends(current_user)):
+
+    same_user(user_id, uid)
 
     response = supabase.table("profiles") \
         .select("username, first_name, last_name, profile_picture_url") \
@@ -719,9 +768,13 @@ async def change_profile(
     profileLastName: str = Form(None),
     confirmProfilePassword: str = Form(None),
 
-    profileImage: UploadFile = File(None)
+    profileImage: UploadFile = File(None),
+
+    uid: str = Depends(current_user)
 
 ):
+
+    same_user(userId, uid)
 
     try:
 
@@ -821,6 +874,10 @@ async def change_profile(
             "message": "Profile updated"
         }
 
+    except HTTPException:
+
+        raise
+
     except Exception as e:
 
         print(e)
@@ -831,7 +888,9 @@ async def change_profile(
         )
 
 @app.get("/history/{user_id}")
-def get_history(user_id: str):
+def get_history(user_id: str, uid: str = Depends(current_user)):
+
+    same_user(user_id, uid)
 
     try:
 
@@ -852,14 +911,15 @@ def get_history(user_id: str):
         )
 
 @app.get("/dash/pred/{history_id}")
-def get_predss(history_id: str):
+def get_predss(history_id: str, uid: str = Depends(current_user)):
 
     try:
 
         response = supabase \
             .table("prediction_history") \
             .select("*") \
-            .eq("id", history_id)\
+            .eq("id", history_id) \
+            .eq("user_id", uid) \
             .order("created_at", desc=True) \
             .execute()
 
@@ -873,7 +933,7 @@ def get_predss(history_id: str):
         )
 
 @app.delete("/history/{history_id}")
-def delete_history(history_id: str):
+def delete_history(history_id: str, uid: str = Depends(current_user)):
 
     try:
 
@@ -881,6 +941,7 @@ def delete_history(history_id: str):
             .table("prediction_history") \
             .delete() \
             .eq("id", history_id) \
+            .eq("user_id", uid) \
             .execute()
 
         return {
@@ -896,7 +957,9 @@ def delete_history(history_id: str):
         )
 
 @app.delete("/history/user/{user_id}/date/{date}")
-def delete_history_thisday(date: str, user_id: str):
+def delete_history_thisday(date: str, user_id: str, uid: str = Depends(current_user)):
+
+    same_user(user_id, uid)
 
     parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
 
@@ -926,7 +989,9 @@ def delete_history_thisday(date: str, user_id: str):
         )
     
 @app.delete("/history/user/{user_id}/all")
-def delete_all_history(user_id: str):
+def delete_all_history(user_id: str, uid: str = Depends(current_user)):
+
+    same_user(user_id, uid)
 
     try:
 
@@ -950,7 +1015,7 @@ def delete_all_history(user_id: str):
         
 
 @app.post("/songs")
-async def predict_from_link(data: YoutubeRequest):
+async def predict_from_link(data: YoutubeRequest, uid: str | None = Depends(optional_user)):
     if not model_ready:
         return {"error": "Model belum siap"}
 
@@ -1014,7 +1079,7 @@ async def predict_from_link(data: YoutubeRequest):
         return run_prediction(
             wav_file,
             os.path.basename(wav_file),
-            data.userId,
+            uid,
             song_title=song_title,
             thumbnail_bytes=thumbnail_bytes,
             thumbnail_mime=thumbnail_mime,
@@ -1030,6 +1095,9 @@ AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
 
 @app.get("/audio/thumb/{filename}")  
 async def serve_thumbnail(filename: str):
+    if not THUMB_RE.match(filename):
+        raise HTTPException(status_code=404, detail="Thumbnail tidak ditemukan")
+
     thumb_path = os.path.join(AUDIO_DIR, filename)
 
     if not os.path.exists(thumb_path):
@@ -1039,6 +1107,9 @@ async def serve_thumbnail(filename: str):
 
 @app.get("/audio/{audio_id}")
 async def serve_audio(audio_id: str):
+    if not UUID_RE.match(audio_id):
+        raise HTTPException(status_code=404, detail="Audio tidak ditemukan")
+
     matched = [
         f for f in os.listdir(AUDIO_DIR)
         if f.startswith(audio_id)
@@ -1065,7 +1136,19 @@ async def serve_audio(audio_id: str):
 
 
 @app.delete("/audio/user/{audio_id}")
-async def delete_audio(audio_id: str):
+async def delete_audio(audio_id: str, uid: str = Depends(current_user)):
+    if not UUID_RE.match(audio_id):
+        raise HTTPException(status_code=404, detail="Audio tidak ditemukan")
+
+    owned = supabase.table("prediction_history") \
+        .select("id") \
+        .eq("audio_id", audio_id) \
+        .eq("user_id", uid) \
+        .execute()
+
+    if not owned.data:
+        raise HTTPException(status_code=404, detail="Audio tidak ditemukan")
+
     matched = [
         f for f in os.listdir(AUDIO_DIR)
         if f.startswith(audio_id) and f.lower().endswith((".mp3", ".wav"))
@@ -1080,13 +1163,16 @@ async def delete_audio(audio_id: str):
     supabase.table("prediction_history") \
         .update({"audio_id": None}) \
         .eq("audio_id", audio_id) \
+        .eq("user_id", uid) \
         .execute()
 
     return {"success": True, "message": "Audio deleted"}
 
 
 @app.delete("/audio/user/{user_id}/all")
-async def delete_all_audio(user_id: str):
+async def delete_all_audio(user_id: str, uid: str = Depends(current_user)):
+    same_user(user_id, uid)
+
     response = supabase.table("prediction_history") \
         .select("audio_id") \
         .eq("user_id", user_id) \
@@ -1125,7 +1211,9 @@ async def delete_all_audio(user_id: str):
     }
 
 @app.get("/audio/info/{user_id}")
-async def get_audio_info(user_id: str):
+async def get_audio_info(user_id: str, uid: str = Depends(current_user)):
+    same_user(user_id, uid)
+
     result = supabase.table("prediction_history") \
         .select("audio_id, song_title, duration") \
         .eq("user_id", user_id) \

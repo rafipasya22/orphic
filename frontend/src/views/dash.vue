@@ -1,4 +1,5 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
+import { API_URL } from '@/config'
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { gantiBahasaFunc } from '../composable/gantiBahasa';
 import ModalLogin from '../components/modalLogin.vue';
@@ -272,7 +273,7 @@ const uploadLagu = async () => {
   formData.append('userId', user.id);
 
   try {
-    const res = await fetch('http://127.0.0.1:8000/predict', {
+    const res = await fetch(`${API_URL}/predict`, {
       method: 'POST',
       body: formData,
     });
@@ -356,7 +357,7 @@ const handleAudioUpload = async (file: File) => {
   formData.append('userId', user.id);
 
   try {
-    const res = await fetch('http://127.0.0.1:8000/predict', {
+    const res = await fetch(`${API_URL}/predict`, {
       method: 'POST',
       body: formData,
     });
@@ -379,7 +380,7 @@ onMounted(async () => {
   isHelpActive.value = false;
   const user = authStore.user;
 
-  const res = await axios.get(`http://localhost:8000/api/profile/${user.id}`);
+  const res = await axios.get(`${API_URL}/api/profile/${user.id}`);
 
   profile.value = res.data;
 
